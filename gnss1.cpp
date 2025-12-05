@@ -184,4 +184,28 @@ ENU xyzToENU(const ECEF& point, const ECEF& origin, const Geodetic& origin_blh) 
 
     // 2. 旋转
     // [ E ]   [ -sinL0         cosL0          0      ] [ dX ]
-    // [ N ] = [ -sinB0*cosL0   -
+    // [ N ] = [ -sinB0*cosL0   --sinBO*sinLO
+//[U]cosBO ][ dY ]cosBO*sinLO辽[cosBO*cosLOsinBO ] [ dZ ]
+double E =-sinLo * dX + coslo * dY;
+double N=-sinBo*cosLo *dx-
+sinB0 * sinLo * dY + cosBo * dZ;
+double U = cosB0 * cosLo * dx+
+cosB0 * sinLo * dY+ sinB0 * dz;
+}
+return {point.name, E, N, U};
+int main(){
+//1.初始化输入数据（来自表 1）
+std::vector<ECEF> points ={
+{"DPMC"，-2366462.0712,
+4813719.8322, 3439397.7856}，
+{"MPN1",-2368711.2115，
+4812974.2208，3438897.5484}，
+{"MPN2"，-2365546.0571,
+4815124.9575, 3438094.6390}，
+{"MPN3",-2364618.8793,
+4814092.9370，3440139.5922}，
+{"MPN4"，-2366798.1206，
+4814098.4032,3438639.8475}，
+{"MPN5",-2366082.5847，
+4812909.4119, 3440782.6667}
+};
