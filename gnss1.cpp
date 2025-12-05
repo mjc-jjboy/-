@@ -184,28 +184,94 @@ ENU xyzToENU(const ECEF& point, const ECEF& origin, const Geodetic& origin_blh) 
 
     // 2. 旋转
     // [ E ]   [ -sinL0         cosL0          0      ] [ dX ]
-    // [ N ] = [ -sinB0*cosL0   --sinBO*sinLO
-//[U]cosBO ][ dY ]cosBO*sinLO辽[cosBO*cosLOsinBO ] [ dZ ]
-double E =-sinLo * dX + coslo * dY;
-double N=-sinBo*cosLo *dx-
-sinB0 * sinLo * dY + cosBo * dZ;
-double U = cosB0 * cosLo * dx+
-cosB0 * sinLo * dY+ sinB0 * dz;
+    // [ N ] = [ -sinB0*cosL0   -sinB0*sinL0   cosB0  ] [ dY ]
+    // [ U ]   [  cosB0*cosL0    cosB0*sinL0   sinB0  ] [ dZ ]
+
+    double E = -sinL0 * dX + cosL0 * dY;
+    double N = -sinB0 * cosL0 * dX - sinB0 * sinL0 * dY + cosB0 * dZ;
+    double U =  cosB0 * cosL0 * dX + cosB0 * sinL0 * dY + sinB0 * dZ;
+
+    return {point.name, E, N, U};
 }
-return {point.name, E, N, U};
-int main(){
-//1.初始化输入数据（来自表 1）
-std::vector<ECEF> points ={
-{"DPMC"，-2366462.0712,
-4813719.8322, 3439397.7856}，
-{"MPN1",-2368711.2115，
-4812974.2208，3438897.5484}，
-{"MPN2"，-2365546.0571,
-4815124.9575, 3438094.6390}，
-{"MPN3",-2364618.8793,
-4814092.9370，3440139.5922}，
-{"MPN4"，-2366798.1206，
-4814098.4032,3438639.8475}，
-{"MPN5",-2366082.5847，
-4812909.4119, 3440782.6667}
-};
+
+
+int main() {
+    // 1. 初始化输入数据 (来自表 1)
+    std::vector<ECEF> points = {
+        {"DPMC", -2366462.0712, 4813719.8322, 3439397.7856},
+        {"MPN1", -2368711.2115, 4812974.2208, 3438897.5484},
+        {"MPN2", -2365546.0571, 4815124.9575, 3438094.6390},
+        {"MPN3", -2364618.8793, 4814092.9370, 3440139.5922},
+        {"MPN4", -2366798.1206, 4814098.4032, 3438639.8475},
+        {"MPN5", -2366082.5847, 4812909.4119, 3440782.6667}
+    };
+
+    // 存储计算结果
+    std::vector<Geodetic> geodetic_coords;
+    std::vector<GaussKruger> gauss_coords;
+    std::vector<ENU> enu_coords;
+
+    // 2. 执行任务 1 和 2
+    for (const auto& point : points) {
+        // 任务 1 & 2.1: XYZ -> BLH
+        Geodetic blh = xyzToBLH(point);
+        geodetic_coords.push_back(blh);
+
+        // 任务 2.2: BLH -> Gauss-Kruger
+        GaussKruger gk = blhToGaussKruger(blh);
+        gauss_coords.push_back(gk);
+    }
+
+    // 3. 执行任务 3
+    ECEF origin_xyz = points[0];
+    Geodetic origin_blh = geodetic_coords[0];
+
+    // 从 i = 1 开始，因为 DPMC 是原点
+    for (size_t i = 1; i < points.size(); ++i) {
+        ENU enu = xyzToENU(points[i], origin_xyz, origin_blh);
+        enu_coords.push_back(enu);
+    }
+
+    // 4. 打印所有结果
+    std::cout << "--- 任务 1 & 2: 大地坐标 (B, L, H) 和 3度带高斯平面坐标 (x, y) ---" << std::endl;
+    std::cout << std::left << std::setw(6) << "点名"
+              << std::setw(16) << "纬度 B (deg)"
+              << std::setw(16) << "经度 L (deg)"
+              << std::setw(14) << "大地高 H (m)"
+              << std::setw(6)  << "带号"
+              << std::setw(20) << "x (m)"
+              << std::setw(20) << "y (m)" << std::endl;
+    std::cout << std::string(98, '-') << std::endl;
+    
+    std::cout << std::fixed;
+    for (size_t i = 0; i < geodetic_coords.size(); ++i) {
+        std::cout << std::left << std::setw(6) << geodetic_coords[i].name
+                  << std::setprecision(8)
+                  << std::setw(16) << geodetic_coords[i].B_deg
+                  << std::setw(16) << geodetic_coords[i].L_deg
+                  << std::setprecision(4)
+                  << std::setw(14) << geodetic_coords[i].H
+                  << std::setw(6)  << gauss_coords[i].band
+                  << std::setprecision(4)
+                  << std::setw(20) << gauss_coords[i].x
+                  << std::setw(20) << gauss_coords[i].y << std::endl;
+    }
+
+    std::cout << "\n--- 任务 3: 站心坐标 (E, N, U) ---" << std::endl;
+    std::cout << "原点: " << origin_xyz.name << std::endl;
+    std::cout << std::left << std::setw(6) << "点名"
+              << std::setw(18) << "E (m)"
+              << std::setw(18) << "N (m)"
+              << std::setw(18) << "U (m)" << std::endl;
+    std::cout << std::string(60, '-') << std::endl;
+
+    std::cout << std::fixed << std::setprecision(4);
+    for (const auto& enu : enu_coords) {
+        std::cout << std::left << std::setw(6) << enu.name
+                  << std::setw(18) << enu.E
+                  << std::setw(18) << enu.N
+                  << std::setw(18) << enu.U << std::endl;
+    }
+
+    return 0;
+}
